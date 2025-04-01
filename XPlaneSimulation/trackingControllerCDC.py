@@ -37,7 +37,7 @@ class QUADController():
     def __init__(self):
         self.client = utlis.XPlaneConnect()
 
-        teleport = True
+        teleport = False
         if teleport:
             self.z_fall= -212.0   #-213.78
             quat = [1.0,0.0,0.0,0.0]
@@ -324,20 +324,20 @@ class QUADController():
                 self.ylast = y
 
             if t>750 and t<3000:
-                x= (t/600.0 - 1.25)*0
-                dx=(1/600.0)*0
+                x= 0
+                dx=0
                 self.xlast = x
 
-                y= 0#t/600.0 - 1.25
-                dy=0#1/600.0
+                y= 0
+                dy=0
                 self.ylast = y
 
             if t>8000 and t<10000:
                 x=self.xlast
                 dx=0
 
-                y= (t/800.0 - 10)*0
-                dy=(1/800.0)*0
+                y= 0
+                dy=0
                 self.ylast = y
                 
             else:
@@ -357,16 +357,13 @@ class QUADController():
             dddy=0
             ddddy=0
 
-            if t<6000:
+            if t<3000:
                 z=-t/300.0
                 dz=-1/300.0
 
                 self.zlast = z
-            elif t<7500:
-                z = self.zlast
-                dz=0
             else:
-                z = -15#-15
+                z = self.zlast
                 dz=0
             
             ddz=0
@@ -701,10 +698,9 @@ class QUADController():
     def funRfin2(self, count):
 
 
-        if 5000 < count < 5250:
-            
-            j1 = 0.025*count - 125
-            dj1 = 0.01*np.cos(0.01*count)
+        if 4000 < count < 7000:
+            j1 = 0
+            dj1 = 0
             ddj1 = 0
      
 
@@ -715,7 +711,7 @@ class QUADController():
             ddj1 = 0
             self.j1last = j1
 
-        Rfin = self.expBivector(-j1 * self.e2e3 / 2)         #Este rotor significa nada? mantenerse quieto?
+        Rfin = self.expBivector(-j1 * self.e1e2 / 2)         #Este rotor significa nada? mantenerse quieto?
 
         Rfin = Rfin / self.multivectorNorm(Rfin)
         dRfin = -dj1 * np.matmul(self.e1e2 / 2,Rfin)
@@ -826,7 +822,7 @@ class QUADController():
         # Define reference
         # 'ramps' : rampas
         # 'circle' : ascenso y trayectoria circular
-        ref = 'fall'
+        ref = 'ramps'
 
         # ------------------------------------------------------------
         print(count)
@@ -1111,20 +1107,23 @@ class QUADController():
         scaledThrust = Thrust*normFactor
         scaledTau = self.tausB*normFactor
 
-        self.Throttle1 = scaledThrust + scaledTau[0] - scaledTau[1] + scaledTau[2]
-        self.Throttle2 = scaledThrust - scaledTau[0] - scaledTau[1] - scaledTau[2]
-        self.Throttle3 = scaledThrust + scaledTau[0] + scaledTau[1] - scaledTau[2]
-        self.Throttle4 = scaledThrust - scaledTau[0] + scaledTau[1] + scaledTau[2]
+
         
         self.saved_sc_Tau.append(scaledTau)
         self.saved_sc_Thrust.append(scaledThrust)
 
-        if self.count > 3000:
-            factor = 0
-            Throttles = [self.Throttle1 + factor, self.Throttle2 + factor, self.Throttle3 - factor, self.Throttle4 - factor]
-        elif self.count > 3200:
+        if 4000 < self.count < 7000:
+            factor = 0.001
+            self.Throttle1 = scaledThrust + scaledTau[0] - scaledTau[1] + scaledTau[2] + factor
+            self.Throttle2 = scaledThrust - scaledTau[0] - scaledTau[1] - scaledTau[2] + factor
+            self.Throttle3 = scaledThrust + scaledTau[0] + scaledTau[1] - scaledTau[2] - factor
+            self.Throttle4 = scaledThrust - scaledTau[0] + scaledTau[1] + scaledTau[2] - factor
             Throttles = [self.Throttle1, self.Throttle2, self.Throttle3, self.Throttle4]
         else:
+            self.Throttle1 = scaledThrust + scaledTau[0] - scaledTau[1] + scaledTau[2]
+            self.Throttle2 = scaledThrust - scaledTau[0] - scaledTau[1] - scaledTau[2]
+            self.Throttle3 = scaledThrust + scaledTau[0] + scaledTau[1] - scaledTau[2]
+            self.Throttle4 = scaledThrust - scaledTau[0] + scaledTau[1] + scaledTau[2]
             Throttles = [self.Throttle1, self.Throttle2, self.Throttle3, self.Throttle4]
 
         self.saved_Throttles.append(Throttles)
@@ -1135,7 +1134,7 @@ class QUADController():
 
         #self.poscurrent = [37.524, -122.06899, 2500, 0, 0, 0, 1.0]
 
-        althold = True
+        althold = False
         if althold:
             self.z_hold= -200.0   #-213.78
             dref = "sim/flightmodel/position/local_y"  # Z
