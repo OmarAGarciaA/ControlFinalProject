@@ -63,6 +63,8 @@ class QUADController():
         self.saved_w = []
         self.saved_tau = []
         self.saved_xyz = []
+        self.saved_z = []
+        self.saved_y = []
         self.saved_refs = []
         self.saved_Thrust = []
         self.saved_Rot = []
@@ -73,6 +75,7 @@ class QUADController():
         self.saved_sc_Thrust = []
         self.saved_sc_Tau = []
         self.saved_angles = []
+        self.saved_phi = []
         self.saved_desired_angles = []
         self.saved_desired_angles2 = []
         self.saved_sin_Rd = []
@@ -698,11 +701,119 @@ class QUADController():
     def funRfin2(self, count):
 
 
-        if 4000 < count < 7000:
-            j1 = 0
+        if 4000 < count < 6000:
+            #j1 = 0.1
             dj1 = 0
             ddj1 = 0
+
+            f0 = 0.1   # Start frequency (Hz)
+            f1 = 10  # End frequency (Hz)
+            T = 40.0  # Duration (seconds)
+
+            # Softening factor: reduce rapid frequency changes
+            a = 1  # Controls how aggressively frequency increases
+            f_t = f0 + (f1 - f0) * (count / T)**a
+
+            # Compute phase
+            phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
+
+            j1 = 0.4 * np.sin(phi_t)
+
+        elif 6000 < count < 8000:
+            #j1 = 0.1
+            dj1 = 0
+            ddj1 = 0
+
+            f0 = 10   # Start frequency (Hz)
+            f1 = 30  # End frequency (Hz)
+            T = 40.0  # Duration (seconds)
+
+            # Softening factor: reduce rapid frequency changes
+            a = 0.8  # Controls how aggressively frequency increases
+            f_t = f0 + (f1 - f0) * (count / T)**a
+
+            # Compute phase
+            phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
+
+            j1 = 0.4 * np.sin(phi_t)   
+        
+        elif 8000 < count < 10000:
+            #j1 = 0.1
+            dj1 = 0
+            ddj1 = 0
+
+            f0 = 30   # Start frequency (Hz)
+            f1 = 1  # End frequency (Hz)
+            T = 40.0  # Duration (seconds)
+
+            # Softening factor: reduce rapid frequency changes
+            a = 0.8  # Controls how aggressively frequency increases
+            f_t = f0 + (f1 - f0) * (count / T)**a
+
+            # Compute phase
+            phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
+
+            j1 = 0.4 * np.sin(phi_t)
+                    
+        elif 10000 < count < 12000:
+            #j1 = 0.1
+            dj1 = 0
+            ddj1 = 0
+
+            f0 = 1   # Start frequency (Hz)
+            f1 = 10  # End frequency (Hz)
+            T = 40.0  # Duration (seconds)
+
+            # Softening factor: reduce rapid frequency changes
+            a = 1  # Controls how aggressively frequency increases
+            f_t = f0 + (f1 - f0) * (count / T)**a
+
+            # Compute phase
+            phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
+
+            j1 = 0.4 * np.sin(phi_t)        
+
+        elif 12000 < count < 12500:
+            j1 = 0.0
+            dj1 = 0
+            ddj1 = 0
+
+        elif 12500 < count < 14000:
+            j1 = 0.1
+            dj1 = 0
+            ddj1 = 0
+
+
+        elif 14000 < count < 16000:
+            j1 = -0.1
+            dj1 = 0
+            ddj1 = 0
+
+        elif 16000 < count < 18000:
+            j1 = -0.0001*(count-16000)
+            dj1 = 0
+            ddj1 = 0  
+
+
+        elif 18000 < count < 20000:
+
+            dj1 = 0
+            ddj1 = 0
+
+            f0 = 1   # Start frequency (Hz)
+            f1 = 10  # End frequency (Hz)
+            T = 160.0  # Duration (seconds)
+
+            # Softening factor: reduce rapid frequency changes
+            a = 0.9  # Controls how aggressively frequency increases
+            f_t = f0 + (f1 - f0) * (count / T)**a
+
+            # Compute phase
+            phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
+
+            j1 = 0.3 * np.sin(phi_t) 
      
+        
 
             
         else:
@@ -711,7 +822,7 @@ class QUADController():
             ddj1 = 0
             self.j1last = j1
 
-        Rfin = self.expBivector(-j1 * self.e1e2 / 2)         #Este rotor significa nada? mantenerse quieto?
+        Rfin = self.expBivector(-j1 * self.e2e3 / 2)         #Este rotor significa nada? mantenerse quieto?
 
         Rfin = Rfin / self.multivectorNorm(Rfin)
         dRfin = -dj1 * np.matmul(self.e1e2 / 2,Rfin)
@@ -920,6 +1031,7 @@ class QUADController():
 
         actualAngles = self.myang(Rq_mat)
         self.saved_angles.append(actualAngles)
+        self.saved_phi.append(actualAngles[0])
 
         b3rot = -dv#m*(-dv) / Trust           
 
@@ -995,7 +1107,7 @@ class QUADController():
             else:
                 Lr = np.array([[10, 0, 0, 2, 0 ,0],[0, 100.5, 0, 0, 20.16, 0],[0, 0, 100.5, 0, 0, 18.16]])  
         elif ref == 'ramps':
-            Lr = np.array([[10, 0, 0, 2, 0 ,0],[0, 25.5, 0, 0, 7.16, 0],[0, 0, 109.5, 0, 0, 17.16]])  
+            Lr = np.array([[165.3, 0, 0, 7.01, 0 ,0],[0, 275.5, 0, 0, 8.16, 0],[0, 0, 175.5, 0, 0, 12.16]])  
         else:
             Lr = None
         # ----------------------
@@ -1090,6 +1202,8 @@ class QUADController():
 
         self.xv = np.array([self.x,self.y,self.z,self.dx,self.dy,self.dz])
         self.saved_xyz.append(self.xv)
+        self.saved_z.append(self.xv[2])
+        self.saved_y.append(self.xv[1])
 
         #     p  -> e2e3           q ->  e3e1       r -> e1e2
         self.w = np.array([self.r, self.p, self.q]) 
@@ -1113,7 +1227,7 @@ class QUADController():
         self.saved_sc_Thrust.append(scaledThrust)
 
         if 4000 < self.count < 7000:
-            factor = 0.001
+            factor = 0.000
             self.Throttle1 = scaledThrust + scaledTau[0] - scaledTau[1] + scaledTau[2] + factor
             self.Throttle2 = scaledThrust - scaledTau[0] - scaledTau[1] - scaledTau[2] + factor
             self.Throttle3 = scaledThrust + scaledTau[0] + scaledTau[1] - scaledTau[2] - factor
@@ -1163,22 +1277,24 @@ class QUADController():
 
 def save_data_to_mat(quadcon):
     # Convert lists to numpy arrays
-    saved_sin_Rd = np.array(quadcon.zErrors)
+  
 
     savedz = np.array(quadcon.savedz)
-    savedRefz = np.array(quadcon.savedRefz)
+    saved_y = np.array(quadcon.saved_y)
+    saved_phi = np.array(quadcon.saved_phi)
     
     
     
     # Generate the count (time) vector
-    time_vector = np.arange(len(saved_sin_Rd)) * quadcon.dt  # Assuming dt is the time step
+    time_vector = np.arange(len(savedz)) * quadcon.dt  # Assuming dt is the time step
 
     # Save to a .mat file
     sio.savemat('quadcopter_data_workingcase.mat', {
         'time': time_vector,
-        'saved_errorz_derrorz': saved_sin_Rd,
+        'saved_y': saved_y,
         'saved_z': savedz,
-        'saved_ref_z': savedRefz
+        'saved_phi': saved_phi
+        
     })
     
     print("Data saved to quadcopter_data.mat")    
