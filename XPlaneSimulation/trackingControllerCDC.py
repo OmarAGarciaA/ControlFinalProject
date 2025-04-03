@@ -76,6 +76,7 @@ class QUADController():
         self.saved_sc_Tau = []
         self.saved_angles = []
         self.saved_phi = []
+        self.saved_j1 = []
         self.saved_desired_angles = []
         self.saved_desired_angles2 = []
         self.saved_sin_Rd = []
@@ -701,13 +702,13 @@ class QUADController():
     def funRfin2(self, count):
 
 
-        if 4000 < count < 6000:
+        if 4000 < count < 10000:
             #j1 = 0.1
             dj1 = 0
             ddj1 = 0
 
-            f0 = 0.1   # Start frequency (Hz)
-            f1 = 10  # End frequency (Hz)
+            f0 = 2   # Start frequency (Hz)
+            f1 = 7  # End frequency (Hz)
             T = 40.0  # Duration (seconds)
 
             # Softening factor: reduce rapid frequency changes
@@ -717,101 +718,89 @@ class QUADController():
             # Compute phase
             phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
 
-            j1 = 0.4 * np.sin(phi_t)
+            j1 = 0.05 * np.sin(phi_t)
+            self.saved_j1.append(j1[0])
 
-        elif 6000 < count < 8000:
-            #j1 = 0.1
-            dj1 = 0
-            ddj1 = 0
+        # elif 6000 < count < 8000:
+        #     #j1 = 0.1
+        #     dj1 = 0
+        #     ddj1 = 0
 
-            f0 = 10   # Start frequency (Hz)
-            f1 = 30  # End frequency (Hz)
-            T = 40.0  # Duration (seconds)
+        #     f0 = 2   # Start frequency (Hz)
+        #     f1 = 5  # End frequency (Hz)
+        #     T = 40.0  # Duration (seconds)
 
-            # Softening factor: reduce rapid frequency changes
-            a = 0.8  # Controls how aggressively frequency increases
-            f_t = f0 + (f1 - f0) * (count / T)**a
+        #     # Softening factor: reduce rapid frequency changes
+        #     a = 1  # Controls how aggressively frequency increases
+        #     f_t = f0 + (f1 - f0) * (count / T)**a
 
-            # Compute phase
-            phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
+        #     # Compute phase
+        #     phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
 
-            j1 = 0.4 * np.sin(phi_t)   
+        #     j1 = 0.5 * np.sin(phi_t)
         
-        elif 8000 < count < 10000:
-            #j1 = 0.1
-            dj1 = 0
-            ddj1 = 0
+        # elif 8000 < count < 10000:
+        #     #j1 = 0.1
+        #     dj1 = 0
+        #     ddj1 = 0
 
-            f0 = 30   # Start frequency (Hz)
-            f1 = 1  # End frequency (Hz)
-            T = 40.0  # Duration (seconds)
+        #     f0 = 2   # Start frequency (Hz)
+        #     f1 = 5  # End frequency (Hz)
+        #     T = 40.0  # Duration (seconds)
 
-            # Softening factor: reduce rapid frequency changes
-            a = 0.8  # Controls how aggressively frequency increases
-            f_t = f0 + (f1 - f0) * (count / T)**a
+        #     # Softening factor: reduce rapid frequency changes
+        #     a = 1  # Controls how aggressively frequency increases
+        #     f_t = f0 + (f1 - f0) * (count / T)**a
 
-            # Compute phase
-            phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
+        #     # Compute phase
+        #     phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
 
-            j1 = 0.4 * np.sin(phi_t)
+        #     j1 = 0.5 * np.sin(phi_t)
                     
-        elif 10000 < count < 12000:
-            #j1 = 0.1
-            dj1 = 0
-            ddj1 = 0
+        # elif 10000 < count < 12000:
+        #     j1 = 0.2
+        #     dj1 = 0
+        #     ddj1 = 0    
 
-            f0 = 1   # Start frequency (Hz)
-            f1 = 10  # End frequency (Hz)
-            T = 40.0  # Duration (seconds)
+        # elif 12000 < count < 12500:
+        #     j1 = 0.0
+        #     dj1 = 0
+        #     ddj1 = 0
 
-            # Softening factor: reduce rapid frequency changes
-            a = 1  # Controls how aggressively frequency increases
-            f_t = f0 + (f1 - f0) * (count / T)**a
-
-            # Compute phase
-            phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
-
-            j1 = 0.4 * np.sin(phi_t)        
-
-        elif 12000 < count < 12500:
-            j1 = 0.0
-            dj1 = 0
-            ddj1 = 0
-
-        elif 12500 < count < 14000:
-            j1 = 0.1
-            dj1 = 0
-            ddj1 = 0
+        # elif 12500 < count < 14000:
+        #     j1 = 0.1
+        #     dj1 = 0
+        #     ddj1 = 0
 
 
-        elif 14000 < count < 16000:
-            j1 = -0.1
-            dj1 = 0
-            ddj1 = 0
+        # elif 14000 < count < 16000:
+        #     j1 = -0.1
+        #     dj1 = 0
+        #     ddj1 = 0
 
-        elif 16000 < count < 18000:
-            j1 = -0.0001*(count-16000)
-            dj1 = 0
-            ddj1 = 0  
+        # elif 16000 < count < 18000:
+        #     j1 = -0.0001*(count-16000)
+        #     dj1 = 0
+        #     ddj1 = 0  
 
 
-        elif 18000 < count < 20000:
+        # elif 18000 < count < 20000:
 
-            dj1 = 0
-            ddj1 = 0
+        #     dj1 = 0
+        #     ddj1 = 0
 
-            f0 = 1   # Start frequency (Hz)
-            f1 = 10  # End frequency (Hz)
-            T = 160.0  # Duration (seconds)
+        #     f0 = 1   # Start frequency (Hz)
+        #     f1 = 10  # End frequency (Hz)
+        #     T = 160.0  # Duration (seconds)
 
-            # Softening factor: reduce rapid frequency changes
-            a = 0.9  # Controls how aggressively frequency increases
-            f_t = f0 + (f1 - f0) * (count / T)**a
+        #     # Softening factor: reduce rapid frequency changes
+        #     a = 0.9  # Controls how aggressively frequency increases
+        #     f_t = f0 + (f1 - f0) * (count / T)**a
 
-            # Compute phase
-            phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
+        #     # Compute phase
+        #     phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
 
-            j1 = 0.3 * np.sin(phi_t) 
+        #     j1 = 0.3 * np.sin(phi_t) 
      
         
 
@@ -1282,6 +1271,7 @@ def save_data_to_mat(quadcon):
     savedz = np.array(quadcon.savedz)
     saved_y = np.array(quadcon.saved_y)
     saved_phi = np.array(quadcon.saved_phi)
+    savedj1 = np.array(quadcon.saved_j1)
     
     
     
@@ -1293,7 +1283,8 @@ def save_data_to_mat(quadcon):
         'time': time_vector,
         'saved_y': saved_y,
         'saved_z': savedz,
-        'saved_phi': saved_phi
+        'saved_phi': saved_phi,
+        'saved_phid': savedj1
         
     })
     
