@@ -1,7 +1,10 @@
 #!/usr/bin/env python2.7
 
 #################################################################################
-#                               08/06/2023
+#                               04/30/2025
+
+# Control in the loop with X-Plane to generate a system identification of the lateral subsystem
+# Input will be the angle of inclination and outputs will be the displacement velocity in one axis
 #################################################################################
 
 import sys
@@ -65,6 +68,7 @@ class QUADController():
         self.saved_xyz = []
         self.saved_z = []
         self.saved_y = []
+        self.saved_dy = []
         self.saved_refs = []
         self.saved_Thrust = []
         self.saved_Rot = []
@@ -702,24 +706,22 @@ class QUADController():
     def funRfin2(self, count):
 
 
-        if 4000 < count < 10000:
+        if 4000 < count < 12000:
             #j1 = 0.1
             dj1 = 0
             ddj1 = 0
+            A = 0.02
+            freq = 0.05  # Hz, change this value as needed for next runs
+            omega = 2 * np.pi * freq
+            t = (count-4000) * 0.01  # assuming your timestep is 0.01s
 
-            f0 = 2   # Start frequency (Hz)
-            f1 = 7  # End frequency (Hz)
-            T = 40.0  # Duration (seconds)
+            j1 = A * np.sin(omega * t) 
+            jd = (j1)*(180/np.pi)
 
-            # Softening factor: reduce rapid frequency changes
-            a = 1  # Controls how aggressively frequency increases
-            f_t = f0 + (f1 - f0) * (count / T)**a
+            j1 = -0.05
+            jd=j1
 
-            # Compute phase
-            phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
-
-            j1 = 0.05 * np.sin(phi_t)
-            self.saved_j1.append(j1[0])
+            self.saved_j1.append(jd)
 
         # elif 6000 < count < 8000:
         #     #j1 = 0.1
@@ -1020,7 +1022,9 @@ class QUADController():
 
         actualAngles = self.myang(Rq_mat)
         self.saved_angles.append(actualAngles)
-        self.saved_phi.append(actualAngles[0])
+        degAngles = np.array(actualAngles)
+        degAngles = degAngles*(180/np.pi)
+        self.saved_phi.append(degAngles[0])
 
         b3rot = -dv#m*(-dv) / Trust           
 
@@ -1051,7 +1055,8 @@ class QUADController():
         wsaves = np.array([w4,w5,w6])
         self.saved_w.append(wsaves)
 
-        Rd = np.matmul(Rd,Rdes)                             #Including rotational rotor and heading rotor
+        #Rd = np.matmul(Rd,Rdes) 
+        Rd = Rdes                            #Including rotational rotor and heading rotor
         Rd = Rd / self.multivectorNorm(Rd)
 
 
@@ -1096,7 +1101,7 @@ class QUADController():
             else:
                 Lr = np.array([[10, 0, 0, 2, 0 ,0],[0, 100.5, 0, 0, 20.16, 0],[0, 0, 100.5, 0, 0, 18.16]])  
         elif ref == 'ramps':
-            Lr = np.array([[165.3, 0, 0, 7.01, 0 ,0],[0, 275.5, 0, 0, 8.16, 0],[0, 0, 175.5, 0, 0, 12.16]])  
+            Lr = np.array([[165.3, 0, 0, 7.01, 0 ,0],[0, 775.5, 0, 0, 20.16, 0],[0, 0, 175.5, 0, 0, 12.16]])  
         else:
             Lr = None
         # ----------------------
@@ -1193,6 +1198,9 @@ class QUADController():
         self.saved_xyz.append(self.xv)
         self.saved_z.append(self.xv[2])
         self.saved_y.append(self.xv[1])
+        self.saved_dy.append(self.xv[4])
+        
+
 
         #     p  -> e2e3           q ->  e3e1       r -> e1e2
         self.w = np.array([self.r, self.p, self.q]) 
@@ -1270,18 +1278,20 @@ def save_data_to_mat(quadcon):
 
     savedz = np.array(quadcon.savedz)
     saved_y = np.array(quadcon.saved_y)
+    saved_dy = np.array(quadcon.saved_dy)
     saved_phi = np.array(quadcon.saved_phi)
     savedj1 = np.array(quadcon.saved_j1)
     
     
     
     # Generate the count (time) vector
-    time_vector = np.arange(len(savedz)) * quadcon.dt  # Assuming dt is the time step
+    time_vector = np.arange(len(savedz)) * quadcon.dt /100 # Assuming dt is the time step
 
     # Save to a .mat file
-    sio.savemat('quadcopter_data_workingcase.mat', {
+    sio.savemat('quadcopter_data_workingcase8.mat', {
         'time': time_vector,
         'saved_y': saved_y,
+        'saved_dy': saved_dy,
         'saved_z': savedz,
         'saved_phi': saved_phi,
         'saved_phid': savedj1
@@ -1302,6 +1312,7 @@ def signal_handler(sig, frame):
         # plot_tau_data(QUADcon.saved_tau)
         plot_sc_tau_data(QUADcon.saved_sc_Tau)
         plot_xyz_data(QUADcon.saved_xyz, QUADcon.saved_refs)
+        plot_xyz_velocities(QUADcon.saved_xyz)
         plot_xyz_errors(QUADcon.posErrors)
         # plot_thrust_data(QUADcon.saved_Thrust)
         plot_sc_thrust_data(QUADcon.saved_sc_Thrust)
@@ -1787,6 +1798,54 @@ def plot_xyz_data(xyz_data, refs, zoom_x=None, zoom_y=None):
     # Save the figure
     plt.savefig('XPlane_xyz_plot.png')
     plt.close()
+
+def plot_xyz_velocities(xyz_data, zoom_x=None, zoom_y=None):
+    """ Plot xyz data with optional zooming """
+    # Convert to numpy arrays
+    xyz_data = np.array(xyz_data)
+    
+    time_steps = np.arange(len(xyz_data))
+    time_steps = time_steps/100
+    
+    plt.figure()
+
+    # Subplot for x data
+    plt.subplot(3, 1, 1)
+    plt.plot(time_steps, xyz_data[:, 3], label='dx')
+    plt.ylabel('dx')
+    plt.legend()
+    if zoom_x:
+        plt.xlim(zoom_x)  # Zoom into x-axis range if specified
+    if zoom_y:
+        plt.ylim(zoom_y)  # Zoom into y-axis range if specified
+
+    # Subplot for y data
+    plt.subplot(3, 1, 2)
+    plt.plot(time_steps, xyz_data[:, 4], label='dy')
+    plt.ylabel('dy')
+    plt.legend()
+    if zoom_x:
+        plt.xlim(zoom_x)
+    if zoom_y:
+        plt.ylim(zoom_y)
+
+    # Subplot for z data
+    plt.subplot(3, 1, 3)
+    plt.plot(time_steps, xyz_data[:, 5], label='dz')
+    plt.ylabel('dz')
+    plt.legend()
+    if zoom_x:
+        plt.xlim(zoom_x)
+    if zoom_y:
+        plt.ylim(zoom_y)
+
+    plt.xlabel('Time Step')
+    plt.tight_layout()
+
+    # Save the figure
+    plt.savefig('XPlane_xyz_velocities.png')
+    plt.close()
+
 
 def plot_xyz_data_3d(xyz_data, refs, xlim=None, ylim=None, zlim=None):
     """ Plot xyz data in 3D with optional axis limits """
