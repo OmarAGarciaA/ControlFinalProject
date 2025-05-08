@@ -4,7 +4,7 @@
 #                               04/30/2025
 
 # Control in the loop with X-Plane to generate a system identification of the lateral subsystem
-# Input will be the angle of inclination and outputs will be the displacement velocity in one axis
+# Input will be the angle of inclination and outputs will be the displacement velocity in one axis.
 #################################################################################
 
 import sys
@@ -40,27 +40,7 @@ class QUADController():
     def __init__(self):
         self.client = utlis.XPlaneConnect()
 
-        teleport = False
-        if teleport:
-            self.z_fall= -212.0   #-213.78
-            quat = [1.0,0.0,0.0,0.0]
-            dref = "sim/flightmodel/position/local_y"  # Z
-            drefv = "sim/flightmodel/position/local_vy"  # Z
-            drefa = "sim/flightmodel/position/local_ay"  # Z
-
-            init_psi = "sim/flightmodel/position/q"
-            #self.client.sendDREF(dref, self.z_fall) 
-            
-            #self.client.sendDREF(drefv, 0.0) 
-            #self.client.sendDREF(drefa, 0.0)
-            #self.client.sendDREF(init_psi, 11) 
-
-
-            
-
         self.time_zero = rospy.Time.now()
-        
-
         self.Plotting = False
         self.saved_quat = []
         self.saved_w = []
@@ -170,7 +150,7 @@ class QUADController():
         self.jdthdant = np.zeros((4, 4))
         self.jdthdant2 = np.zeros((4, 4))
 
-        #LRQ Design
+        # -------------------------- LRQ Design -------------------------------
         Ar = np.block([
             [np.zeros((3, 3)), np.eye(3)],
             [np.zeros((3, 6))]])
@@ -280,7 +260,6 @@ class QUADController():
             return m7*self.e1e2e3
 
     # Calculates the rotational error between desired and actual bivectors
-
     def rotationalError2(self, R, Rd):
         Re = np.matmul(R.T,Rd)
         Be = self.kVectorPart(Re, 2)
@@ -297,15 +276,6 @@ class QUADController():
 
         return jethe                   
 
-
-    # Vector field for rotational dynamics
-    def myf(self, x, JJ):
-        f = np.zeros(6)
-        f[3] = (x[4] * x[5] * (JJ[1] - JJ[2]))[0]
-        f[4] = (x[5] * x[3] * (JJ[2] - JJ[0]))[0]
-        f[5] = (x[3] * x[4] * (JJ[0] - JJ[1]))[0]
-        return np.reshape(f, (6, 1))
-
     # Estimates the rotation matrix R from the vector field f3
     def estR(self, f3, e3):
         Rb = 1*self.e0 + np.matmul(f3, e3)
@@ -317,21 +287,9 @@ class QUADController():
         return self.kVectorPart(Rb,0)+self.kVectorPart(Rb,2)
 
     def refsxyz(self, count,ref):
-       
-
         if ref == 'ramps':
-            t=count#*0.001
-            f=0.05
-            if t<750:
-                x=0.0
-                dx=0.0
-                self.xlast = x
-
-                y=0.0
-                dy=0.0
-                self.ylast = y
-
-            if t>750 and t<3000:
+            t=count
+            if t>=0 and t<=3500:
                 x= 0
                 dx=0
                 self.xlast = x
@@ -340,12 +298,18 @@ class QUADController():
                 dy=0
                 self.ylast = y
 
-            if t>8000 and t<10000:
+            if t>3500 and t<20000:
                 x=self.xlast
                 dx=0
 
                 y= 0
-                dy=0
+                dy=1
+
+                angle_start = 0
+                r = 5
+                circleTime = (t - 6000) * 0.0006                    
+                dy = r * np.cos(circleTime-angle_start)
+                
                 self.ylast = y
                 
             else:
@@ -359,7 +323,6 @@ class QUADController():
             ddx=0
             dddx=0
             ddddx=0
-
         
             ddy=0
             dddy=0
@@ -377,317 +340,9 @@ class QUADController():
             ddz=0
             dddz=0
             ddddz=0
-        elif ref == 'circlegood':
-            # Circle
-            t=count#*0.001
-            f=0.05
-            if t<750:
-                x=0.0
-                dx=0.0
-                ddx=0
-                dddx=0
-                ddddx=0
-                self.xlast = x
-
-                y=0.0
-                dy=0.0
-                ddy=0
-                dddy=0
-                ddddy=0
-                self.ylast = y
-
-            if t>750 and t<5750:
-                x= t*0.0039 - 2.9
-                dx=0.0039
-                ddx=0
-                dddx=0
-                ddddx=0
-                self.xlast = x
-
-                y= t*0.0039 - 2.9
-                dy=0.0039
-                ddy=0
-                dddy=0
-                ddddy=0
-                self.ylast = y
-
-            if t>5750 and t<20000:
-                x=self.xlast
-                dx=0
-                ddx=0
-                dddx=0
-                ddddx=0
-
-                x_center = 0
-                y_center = 19.5
-                x_start = 19.5
-                y_start = 19.5
-
-                # Calculate the angle corresponding to (x_start, y_start)
-                angle_start = 0#np.arctan2(y_start - y_center, x_start - x_center)
-               
-                r = 19.5
-                circleTime = (t - 5750) * 0.0006
-                x = r * np.cos(circleTime-angle_start)
-
-
-                y= 0#t/800.0 - 10
-                dy=0#1/800.0
-                ddy=0
-                dddy=0
-                ddddy=0
-
-
-                y = r * np.sin(circleTime-angle_start) + y_center
-
-
-
-                self.ylast = y
-                
-            else:
-                x=self.xlast
-                dx=0
-                ddx=0
-                dddx=0
-                ddddx=0
-
-                y=self.ylast
-                dy=0
-                ddy=0
-                dddy=0
-                ddddy=0
-
-            if t<5750:
-                z=-t*0.0052
-                dz=-0.0052
-
-                self.zlast = z
-            elif t<12000:
-                z = self.zlast
-                dz=0
-            else:
-                z = self.zlast
-                dz=0
-            
-            ddz=0
-            dddz=0
-            ddddz=0
-
-        elif ref == 'circle':
-            # Circle
-            t=count#*0.001
-            f=0.05
-            if t<750:
-                x=0.0
-                dx=0.0
-                ddx=0
-                dddx=0
-                ddddx=0
-                self.xlast = x
-
-                y=0.0
-                dy=0.0
-                ddy=0
-                dddy=0
-                ddddy=0
-                self.ylast = y
-
-            if t>750 and t<5750:
-                x= t*0.0039 - 2.9
-                dx=0.0039
-                ddx=0
-                dddx=0
-                ddddx=0
-                self.xlast = x
-
-                y= t*0.0039 - 2.9
-                dy=0.0039
-                ddy=0
-                dddy=0
-                ddddy=0
-                self.ylast = y
-
-            if t>5750 and t<20000:
-                x=self.xlast
-
-                x_center = 0
-                y_center = 19.5
-                x_start = 19.5
-                y_start = 19.5
-
-                # Calculate the angle corresponding to (x_start, y_start)
-                angle_start = 0#np.arctan2(y_start - y_center, x_start - x_center)
-               
-                r = 19.5
-                circleTime = (t - 5750) * 0.0006                    
-                x = r * np.cos(circleTime-angle_start)
-                dx = -r * np.sin(circleTime-angle_start)* 0.0006
-                ddx = 0 # -r * np.cos(circleTime-angle_start)
-                dddx = 0 # r * np.sin(circleTime-angle_start)
-                ddddx = 0 # r * np.cos(circleTime-angle_start)
-
-                y = r * np.sin(circleTime-angle_start) + y_center
-                dy = r * np.cos(circleTime-angle_start)* 0.0006 #1/800.0
-                ddy = 0 # -r * np.sin(circleTime-angle_start)
-                dddy = 0 # -r * np.cos(circleTime-angle_start)
-                ddddy = 0 # r * np.sin(circleTime-angle_start)
-
-                self.ylast = y
-                
-            else:
-                x=self.xlast
-                dx=0
-                ddx=0
-                dddx=0
-                ddddx=0
-
-                y=self.ylast
-                dy=0
-                ddy=0
-                dddy=0
-                ddddy=0
-
-            if t<5750:
-                z=-t*0.0052
-                dz=-0.0052
-
-                self.zlast = z
-            elif t<12000:
-                z = self.zlast
-                dz=0
-            else:
-                z = self.zlast
-                dz=0
-            
-            ddz=0
-            dddz=0
-            ddddz=0
-
-        elif ref == 'rose':
-            # 4-petal Rose Reference
-            t = count  # *0.001
-            a = 50
-            n = 2
-            d = 1
-            f = 5e-5
-
-            k = n / d
-
-            if t < 750:  # Initial hold
-                x = 0.0
-                dx = 0.0
-                ddx = 0
-                dddx = 0
-                ddddx = 0
-                self.xlast = x
-
-                y = 0.0
-                dy = 0.0
-                ddy = 0
-                dddy = 0
-                ddddy = 0
-                self.ylast = y
-
-            elif t > 750 and t < 5750:  # Diagonal Ascension
-                x = t * 0.0039 - 2.9
-                dx = 0.0039
-                ddx = 0
-                dddx = 0
-                ddddx = 0
-                self.xlast = x
-
-                y = t * 0.0039 - 2.9
-                dy = 0.0039
-                ddy = 0
-                dddy = 0
-                ddddy = 0
-                self.ylast = y
-
-            elif t > 5750:  # 4-Petal Rose Motion
-                x = a * np.cos(2 * f * np.pi * (t - 5750)) * np.cos(2 * f * k * np.pi * (t - 5750)) - 30.5
-                dx = -2 * a * f * k * np.pi * np.sin(2 * f * k * np.pi * (t - 5750)) * np.cos(2 * f * np.pi * (t - 5750)) - \
-                    2 * a * f * np.pi * np.sin(2 * f * np.pi * (t - 5750)) * np.cos(2 * f * k * np.pi * (t - 5750))
-                ddx = 0
-                dddx = 0
-                ddddx = 0
-
-                y = a * np.sin(2 * f * np.pi * (t - 5750)) * np.cos(2 * f * k * np.pi * (t - 5750)) + 20
-                dy = -2 * a * f * k * np.pi * np.sin(2 * f * np.pi * (t - 5750)) * np.sin(2 * f * k * np.pi * (t - 5750)) + \
-                    2 * a * f * np.pi * np.cos(2 * f * np.pi * (t - 5750)) * np.cos(2 * f * k * np.pi * (t - 5750))
-                ddy = 0
-                dddy = 0
-                ddddy = 0
-
-            else:
-                x=self.xlast
-                dx=0
-                ddx=0
-                dddx=0
-                ddddx=0
-
-                y=self.ylast
-                dy=0
-                ddy=0
-                dddy=0
-                ddddy=0
-
-            if t < 5750:
-                z = -t * 0.0052
-                dz = -0.0052
-                self.zlast = z
-            elif t < 12000:
-                z = self.zlast
-                dz = 0
-            else:
-                z = self.zlast
-                dz = 0
-
-            ddz = 0
-            dddz = 0
-            ddddz = 0
-
-        elif ref == 'fall':
-            # free fall recovery
-            t = count 
-
-            x = -0.375
-            dx = 0.0
-            ddx = 0
-            dddx = 0
-            ddddx = 0
-
-            y = -0.02
-            dy = 0.0
-            ddy = 0
-            dddy = 0
-            ddddy = 0
-
-            # z = -213.78+20
-            # dz = 0
-            ddz = 0
-            dddz = 0
-            ddddz = 0    
-
-            if t < 35000:
-                z = -13
-                dz = 0
-                self.zlast = z
-                # z = -t * 0.0052
-                # dz = -0.0052
-                # self.zlast = z
-            elif t < 37000:
-                z = self.zlast
-                dz = 0
-            else:
-                z = self.zlast
-                dz = 0
-
-            
-
 
         else:
             print('No ref given')    
-
         return [x, y, z, dx, dy, dz, ddx, ddy, ddz, dddx, dddy, dddz, ddddx, ddddy, ddddz]
 
     def xv_dot(self, xv, T, bt):                 
@@ -704,116 +359,21 @@ class QUADController():
 
 
     def funRfin2(self, count):
-
-
         if 4000 < count < 12000:
-            #j1 = 0.1
+            j1 = 0
+            jd=j1
             dj1 = 0
             ddj1 = 0
-            A = 0.02
-            freq = 0.05  # Hz, change this value as needed for next runs
-            omega = 2 * np.pi * freq
-            t = (count-4000) * 0.01  # assuming your timestep is 0.01s
-
-            j1 = A * np.sin(omega * t) 
-            jd = (j1)*(180/np.pi)
-
-            j1 = -0.05
-            jd=j1
 
             self.saved_j1.append(jd)
 
-        # elif 6000 < count < 8000:
-        #     #j1 = 0.1
-        #     dj1 = 0
-        #     ddj1 = 0
-
-        #     f0 = 2   # Start frequency (Hz)
-        #     f1 = 5  # End frequency (Hz)
-        #     T = 40.0  # Duration (seconds)
-
-        #     # Softening factor: reduce rapid frequency changes
-        #     a = 1  # Controls how aggressively frequency increases
-        #     f_t = f0 + (f1 - f0) * (count / T)**a
-
-        #     # Compute phase
-        #     phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
-
-        #     j1 = 0.5 * np.sin(phi_t)
-        
-        # elif 8000 < count < 10000:
-        #     #j1 = 0.1
-        #     dj1 = 0
-        #     ddj1 = 0
-
-        #     f0 = 2   # Start frequency (Hz)
-        #     f1 = 5  # End frequency (Hz)
-        #     T = 40.0  # Duration (seconds)
-
-        #     # Softening factor: reduce rapid frequency changes
-        #     a = 1  # Controls how aggressively frequency increases
-        #     f_t = f0 + (f1 - f0) * (count / T)**a
-
-        #     # Compute phase
-        #     phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
-
-        #     j1 = 0.5 * np.sin(phi_t)
-                    
-        # elif 10000 < count < 12000:
-        #     j1 = 0.2
-        #     dj1 = 0
-        #     ddj1 = 0    
-
-        # elif 12000 < count < 12500:
-        #     j1 = 0.0
-        #     dj1 = 0
-        #     ddj1 = 0
-
-        # elif 12500 < count < 14000:
-        #     j1 = 0.1
-        #     dj1 = 0
-        #     ddj1 = 0
-
-
-        # elif 14000 < count < 16000:
-        #     j1 = -0.1
-        #     dj1 = 0
-        #     ddj1 = 0
-
-        # elif 16000 < count < 18000:
-        #     j1 = -0.0001*(count-16000)
-        #     dj1 = 0
-        #     ddj1 = 0  
-
-
-        # elif 18000 < count < 20000:
-
-        #     dj1 = 0
-        #     ddj1 = 0
-
-        #     f0 = 1   # Start frequency (Hz)
-        #     f1 = 10  # End frequency (Hz)
-        #     T = 160.0  # Duration (seconds)
-
-        #     # Softening factor: reduce rapid frequency changes
-        #     a = 0.9  # Controls how aggressively frequency increases
-        #     f_t = f0 + (f1 - f0) * (count / T)**a
-
-        #     # Compute phase
-        #     phi_t = 2 * np.pi * np.cumsum(f_t * 0.01)  # Integrate frequency with time step 0.01
-
-        #     j1 = 0.3 * np.sin(phi_t) 
-     
-        
-
-            
         else:
             j1 = 0
             dj1 = 0
             ddj1 = 0
             self.j1last = j1
 
-        Rfin = self.expBivector(-j1 * self.e2e3 / 2)         #Este rotor significa nada? mantenerse quieto?
+        Rfin = self.expBivector(-j1 * self.e2e3 / 2)         
 
         Rfin = Rfin / self.multivectorNorm(Rfin)
         dRfin = -dj1 * np.matmul(self.e1e2 / 2,Rfin)
@@ -869,15 +429,9 @@ class QUADController():
            
             log_norm = np.arccos(scalar_part / norm_A) / np.linalg.norm(bivector_part)
             bivector_log = np.array(bivector_part) * log_norm
-
-            #This is not in matrix form IT SHOULD RETURN A MULTIVECTOR EVEN
-
             bivector_log = bivector_log[0] * self.e1e2 + bivector_log[1] * self.e2e3 + bivector_log[2] * self.e3e1   
-
-            bivector_log = self.kVectorPart(bivector_log,2)   #prob not necessary
-           
-            result = val + bivector_log   
-            
+            bivector_log = self.kVectorPart(bivector_log,2)   
+            result = val + bivector_log        
         else:
             result = val      
         return result
@@ -920,87 +474,61 @@ class QUADController():
         jethe = -2 * self.log_even(Re)  
         return jethe
 
+    # ------------------------------------------------------------
+    # Des : This function accounts for both the stabilization controller and the LQR designed Angular Velocity Controller
+    # Input :
+    # Output :
+    # ------------------------------------------------------------
     def control(self, xv, w, Rq, m, g, JJ, Bir, Lp, Lr, count):
-        # Define reference
-        # 'ramps' : rampas
-        # 'circle' : ascenso y trayectoria circular
         ref = 'ramps'
 
-        # ------------------------------------------------------------
         print(count)
-        refs = np.array(self.refsxyz(count,ref))
+        # Obtention of references
+        refs = np.array(self.refsxyz(count,ref))       
+        # Calculating Position Errors
+        posErr = xv - refs[0:6]   
 
-        posErr = xv - refs[0:6]                         # E 30
+
+
         self.posErrors.append(posErr[0:6])
         self.zErrors.append([posErr[2], posErr[5]])
         self.savedz.append(xv[2])
         self.savedRefz.append(refs[2])
 
-        #test PD
-        error_z = xv[2] - refs[2]                       # E 37
-        e_error_z = xv[5] - refs[5]                     # Part of E 38
-        
-            # E 38
+        # ----------------------- Outer Loop LQR lateral velocity controller ------ 
+        #  Once the quadcopter reached certain altitude it starts tracking a lateral velocity reference  
+        #  u=K(x-Fr)+Nr              
+        if count>3500 and count<16000:
+            K = 3.1272
+            Kdy = 7
+            posErrdycontrol = xv[4] - 0.5*refs[4]
+            theta_commanded = -Kdy*posErrdycontrol - 0.325*xv[4]
 
-        if ref == 'circlegood':
-            kpdx=-0.31*1.3
-            kddx=-0.63*1.8
+            Ky = 0.58
+            posErrycontrol = xv[1] + 0.09*refs[4]                       
+            uy_commanded = -Ky*posErrdycontrol - 0.325*xv[4]
+            print(xv[1])
 
-            kpdy=-0.47
-            kddy=-0.58
-            kpdz=0.02*8*17
-            kddz=0.06*4*23
-        elif ref == 'circle':
-            # kpdx=-0.31*1.3
-            # kddx=-0.63*1.8
 
-            # kpdy=-0.47
-            # kddy=-0.58
 
-            kpdx=-1.12
-            kddx=-1.92
+        else: 
+            print('No error')
+            theta_commanded = 0
+            uy_commanded = 0
+        # ---------------------------------------------------------------------------------
 
-            kpdy=-3.4*0.5
-            kddy=-3.8*0.5
-            kpdz=0.02*8*17
-            kddz=0.06*4*23
-        elif ref == 'rose':
-            # kpdx=-0.31*1.3
-            # kddx=-0.63*1.8
+        # ------ Inner Loop Stabilization and Translation tracking Controller ----------
 
-            # kpdy=-0.47
-            # kddy=-0.58
+        # ------1.  Inner Loop Rotational Controller --------------
 
-            kpdx=-1.12
-            kddx=-1.92
-
-            kpdy=-3.4*0.5
-            kddy=-3.8*0.5   
-            kpdz=0.02*8*17
-            kddz=0.06*4*23 
-        elif ref == 'ramps':
+        # Inner Loop Controller Gains for Translation Tracking
+        if ref == 'ramps':
             kpdx=-1.12 *0 
             kddx=-1.92*0
-
             kpdy=-3.4*0
             kddy=-3.8*0
             kpdz=0.02*8*17
             kddz=0.06*4*23
-        elif ref == 'fall':
-            if count >5000:
-                kpdx=-3.4 * 0.0
-                kddx=-3.8 * 0.0
-                kpdy=-3.4 * 0
-                kddy=-3.8  * 0
-                kpdz=0.02*8*21 
-                kddz=0.06*4*24
-            else:
-                kpdx=-3.4 * 0.5
-                kddx=-3.8 * 0.5
-                kpdy=-3.4* 0
-                kddy=-3.8 * 0
-                kpdz=0.02*8*21 
-                kddz=0.06*4*24 
         else:
             kpdx=None
             kddx=None
@@ -1010,14 +538,16 @@ class QUADController():
             kddz=None
 
         Lp = np.array([[kpdx, 0, 0, kddx, 0 ,0],[0, kpdy, 0, 0, kddy, 0],[0, 0, kpdz, 0, 0, kddz]])
+        dv = np.matmul(-Lp, np.reshape((posErr), (6, 1)))-np.vstack([0,0,g])+np.reshape(np.array(refs[6:9]), (3, 1))  
+        #dv = dv[0] * self.e1 + dv[1] * self.e2 + dv[2] * self.e3
+        dv = dv[0] * self.e1 + uy_commanded * self.e2 + dv[2] * self.e3
 
-        dv = np.matmul(-Lp, np.reshape((posErr), (6, 1)))-np.vstack([0,0,g])+np.reshape(np.array(refs[6:9]), (3, 1))  # E 34
 
-        dv = dv[0] * self.e1 + dv[1] * self.e2 + dv[2] * self.e3
 
-        Trust = m * self.multivectorNorm(-dv)                   #Missing g*e3
+
+        Trust = m * self.multivectorNorm(-dv)                   
    
-        Rq_mat = Rq[0] * self.e0 + Rq[1] * self.e1e2 + Rq[2] * self.e2e3 + Rq[3] * self.e3e1        # Quadcopter angular position
+        Rq_mat = Rq[0] * self.e0 + Rq[1] * self.e1e2 + Rq[2] * self.e2e3 + Rq[3] * self.e3e1        
         Rq_mat = Rq_mat / self.multivectorNorm(Rq_mat)
 
         actualAngles = self.myang(Rq_mat)
@@ -1026,39 +556,29 @@ class QUADController():
         degAngles = degAngles*(180/np.pi)
         self.saved_phi.append(degAngles[0])
 
-        b3rot = -dv#m*(-dv) / Trust           
+        b3rot = -dv         
 
-        if self.multivectorNorm(b3rot) > 1e-9:                                  # Recovering the Desired Rotor (Dorian)
+        # ------2.  Inner Loop Rotational Controller --------------
+
+        if self.multivectorNorm(b3rot) > 1e-9:                                 
             b3rot = b3rot / self.multivectorNorm(b3rot)
             Rd = self.estR(b3rot, self.e3)
         else:
             Rd = 1*self.e0  
 
-        Rdes, dRdes, ddRdes = self.funRfin2(count)                              #Heading reference
+        Rdes, dRdes, ddRdes = self.funRfin2(count)                              
         Rdes = self.kVectorPart(Rdes, 0) + self.kVectorPart(Rdes, 2)
         Rdes = Rdes / self.multivectorNorm(Rdes)
-       
-        # R1des = self.multiVectorParts(self.kVectorPart(Rdes, 0))[0]
-        # R2des = self.multiVectorParts(self.kVectorPart(Rdes, 2))[4]
-        # R3des = self.multiVectorParts(self.kVectorPart(Rdes, 2))[5]
-        # R4des = self.multiVectorParts(self.kVectorPart(Rdes, 2))[6]
-        # myDesiredRot = np.array([R1des,R2des,R3des,R4des])
-        # self.saved_Desired_Rot.append(myDesiredRot)
-
 
         w = w[0]*self.e1e2 + w[1]*self.e2e3 + w[2]*self.e3e1   
         w = self.kVectorPart(w,2) 
         w4, w5, w6 = self.multiVectorParts(w)[4:7]
 
-        # -- I BELIEVE THE ANGULAR VELOCTITIES ARE IN THE BODY FRAME
-
         wsaves = np.array([w4,w5,w6])
         self.saved_w.append(wsaves)
 
-        #Rd = np.matmul(Rd,Rdes) 
-        Rd = Rdes                            #Including rotational rotor and heading rotor
+        Rd = Rdes                            
         Rd = Rd / self.multivectorNorm(Rd)
-
 
         R1d = self.multiVectorParts(self.kVectorPart(Rd, 0))[0]
         R2d = self.multiVectorParts(self.kVectorPart(Rd, 2))[4]
@@ -1067,52 +587,26 @@ class QUADController():
         myDesiredRd = np.array([R1d,R2d,R3d,R4d])
         self.saved_Desired_Rd.append(myDesiredRd)
 
-        # TODO: Calcular jd thetad
         jdthd = self.extractjth(Rd)
         
-
         desiredAngles2 = self.myang(Rd)
         self.saved_desired_angles2.append(desiredAngles2)
 
-
-        # Errors
+        # Calculatin Orientation Error
         Error = self.rotationalError2(Rq_mat,Rd)
   
         Er_parts = self.multiVectorParts(Error)
-        Er4, Er5, Er6 = Er_parts[4:7]                           #e1e2 e2e3 e3e1
+        Er4, Er5, Er6 = Er_parts[4:7]                           
 
         Errors = np.vstack([Er4,Er5,Er6])[:,0]
         self.saved_rot_error.append(Errors)
 
-
-     
-
-        # Rotational Gains
-        
-        if ref == 'circlegood':
-            Lr = np.array([[65.3, 0, 0, 5.01, 0 ,0],[0, 115.5, 0, 0, 8.16, 0],[0, 0, 115.5, 0, 0, 19.16]])
-        elif ref == 'circle':
-            Lr = np.array([[165.3, 0, 0, 7.01, 0 ,0],[0, 275.5, 0, 0, 8.16, 0],[0, 0, 375.5, 0, 0, 19.16]])
-        elif ref == 'rose':
-            Lr = np.array([[165.3, 0, 0, 7.01, 0 ,0],[0, 275.5, 0, 0, 8.16, 0],[0, 0, 375.5, 0, 0, 22.16]])
-        elif ref == 'fall':
-            if 5000<count < 5245:
-                Lr = np.array([[0, 0, 0, 0, 0 ,0],[0, 400.5, 0, 0, 5.16, 0],[0, 0, 0, 0, 0, 0]])  
-            else:
-                Lr = np.array([[10, 0, 0, 2, 0 ,0],[0, 100.5, 0, 0, 20.16, 0],[0, 0, 100.5, 0, 0, 18.16]])  
-        elif ref == 'ramps':
-            Lr = np.array([[165.3, 0, 0, 7.01, 0 ,0],[0, 775.5, 0, 0, 20.16, 0],[0, 0, 175.5, 0, 0, 12.16]])  
+        # Inner Loop Controller Gains for Rotational Stabilization
+        if ref == 'ramps':
+            Lr = np.array([[165.3*2, 0, 0, 7.01*2, 0 ,0],[0, 775.5, 0, 0, 20.16, 0],[0, 0, 175.5*2, 0, 0, 12.16*2]])  
         else:
             Lr = None
         # ----------------------
-
-        # self.current_time = rospy.Time.now()
-        # real_time = self.current_time-self.time_zero
-        # real_time=real_time.to_sec()
-
-        # #Test derivative with a sine
-        # jdthdseno = np.cos(real_time)*self.e0 + np.cos(real_time)*self.e1e2 + 0*self.e2e3 + 0*self.e3e1
-        # jdthd = np.sin(real_time)*self.e0 + np.sin(real_time)*self.e1e2 + 0*self.e2e3 + 0*self.e3e1
 
         sind = self.multiVectorParts(self.kVectorPart(jdthd, 0))[0]
         sin2d = self.multiVectorParts(self.kVectorPart(jdthd, 2))[4]
@@ -1121,17 +615,7 @@ class QUADController():
         mysinRd = np.array([sind,sin2d,sin3d,sin4d])
         self.saved_sin_Rd.append(mysinRd)
 
-        # ANALITICA
-        # dsind = self.multiVectorParts(self.kVectorPart(jdthdseno, 0))[0]
-        # dsin2d = self.multiVectorParts(self.kVectorPart(jdthdseno, 2))[4]
-        # dsin3d = self.multiVectorParts(self.kVectorPart(jdthdseno, 2))[5]
-        # dsin4d = self.multiVectorParts(self.kVectorPart(jdthdseno, 2))[6]
-        # dmysinRd = np.array([dsind,dsin2d,dsin3d,dsin4d])
-
-        # self.saved_sin_Rdseno.append(dmysinRd)
-
         alpha = 0.1  # Smaller alpha means more smoothing
-
         if count > 1:
             if count > 2:
                 myOmegadsenos = (3 / 2. * mysinRd - 2 * self.jdthdantsenos + 1 / 2. * self.jdthdant2senos) / (self.dt)
@@ -1148,25 +632,20 @@ class QUADController():
             self.jdthdantsenos = mysinRd
 
 
-        # ----------------------
         Lr = np.matmul(JJ,Lr)  #Including JJ
-        #TODO incorporate effect of Lr in gains
-
-        #Tracking
         x = np.reshape(np.concatenate(([Er4, Er5, Er6], [w4-sin2d, w5-sin3d, w6-sin4d])), (6, 1))
         v = np.matmul(-Lr, x)
-  
         tau = v
-   
-        tauvec = tau[0] * self.e1e2 + tau[1] * self.e2e3 + tau[2] * self.e3e1
 
+        # Inyecting Outer loop lateral velocity control signal
+        tau_roll = tau[1] + theta_commanded
+
+        tauvec = tau[0] * self.e1e2 + tau_roll * self.e2e3 + tau[2] * self.e3e1
         tauB_parts = self.kVectorPart(tauvec,2)
         tauB_parts = self.multiVectorParts(tauB_parts)[4:7]
         
         tauB = np.array(tauB_parts)
-
-        self.saved_refs.append(refs[0:3])
-        
+        self.saved_refs.append(refs[0:6])
         return tauB, Trust
 
     def odomcallback(self, data):
@@ -1201,88 +680,49 @@ class QUADController():
         self.saved_dy.append(self.xv[4])
         
 
-
         #     p  -> e2e3           q ->  e3e1       r -> e1e2
         self.w = np.array([self.r, self.p, self.q]) 
 
         self.tausB, Thrust = self.control(self.xv, self.w, self.myQuat,  self.m, self.g, self.JJ, self.Bir, self.Lp, self.Lr,self.count)
 
-        self.saved_tau.append(self.tausB)
-           
+        self.saved_tau.append(self.tausB)   
         self.saved_Thrust.append(Thrust)
       
         weight = self.m*self.g                          # = 8.24 N  Thats the max thrust output
         hoverThrottle = 0.0864                          # Throttle per motor needed to maintain hover
         normFactor = hoverThrottle/weight
 
+        # Scaling Thrust and Torques with the mass parameters of the quadcopter to avoid Control Saturation
         scaledThrust = Thrust*normFactor
-        scaledTau = self.tausB*normFactor
-
-
+        scaledTau = self.tausB*normFactor/2
         
         self.saved_sc_Tau.append(scaledTau)
         self.saved_sc_Thrust.append(scaledThrust)
 
-        if 4000 < self.count < 7000:
-            factor = 0.000
-            self.Throttle1 = scaledThrust + scaledTau[0] - scaledTau[1] + scaledTau[2] + factor
-            self.Throttle2 = scaledThrust - scaledTau[0] - scaledTau[1] - scaledTau[2] + factor
-            self.Throttle3 = scaledThrust + scaledTau[0] + scaledTau[1] - scaledTau[2] - factor
-            self.Throttle4 = scaledThrust - scaledTau[0] + scaledTau[1] + scaledTau[2] - factor
-            Throttles = [self.Throttle1, self.Throttle2, self.Throttle3, self.Throttle4]
-        else:
-            self.Throttle1 = scaledThrust + scaledTau[0] - scaledTau[1] + scaledTau[2]
-            self.Throttle2 = scaledThrust - scaledTau[0] - scaledTau[1] - scaledTau[2]
-            self.Throttle3 = scaledThrust + scaledTau[0] + scaledTau[1] - scaledTau[2]
-            self.Throttle4 = scaledThrust - scaledTau[0] + scaledTau[1] + scaledTau[2]
-            Throttles = [self.Throttle1, self.Throttle2, self.Throttle3, self.Throttle4]
+        self.Throttle1 = scaledThrust + scaledTau[0] - scaledTau[1] + scaledTau[2]
+        self.Throttle2 = scaledThrust - scaledTau[0] - scaledTau[1] - scaledTau[2]
+        self.Throttle3 = scaledThrust + scaledTau[0] + scaledTau[1] - scaledTau[2]
+        self.Throttle4 = scaledThrust - scaledTau[0] + scaledTau[1] + scaledTau[2]
+        Throttles = [self.Throttle1, self.Throttle2, self.Throttle3, self.Throttle4]
 
         self.saved_Throttles.append(Throttles)
 
         self.data = [\
                 [25,self.Throttle1, self.Throttle2, self.Throttle3, self.Throttle4, -998, -998, -998, -998],\
            ]
-
-        #self.poscurrent = [37.524, -122.06899, 2500, 0, 0, 0, 1.0]
-
-        althold = False
-        if althold:
-            self.z_hold= -200.0   #-213.78
-            dref = "sim/flightmodel/position/local_y"  # Z
-            self.client.sendDREF(dref, self.z_hold) 
-
-        
- 
-    
            
         self.count += 1
 
     def sendToXPlane(self, event):
         motors = self.data 
-        
-        #print 'Motors: %s' %motors[0][1:5]
-        #print('pre time',rospy.get_time())
         self.client.sendDATA(motors)
 
-
-
-        # try to publish it in another node to verify the hz and echo
-        #motor_data = [float(x) for x in motors[0]]
-        #myMsg = Float64MultiArray()
-        #myMsg.data = motor_data
-        #motorSignals.publish(myMsg)
-
 def save_data_to_mat(quadcon):
-    # Convert lists to numpy arrays
-  
-
     savedz = np.array(quadcon.savedz)
     saved_y = np.array(quadcon.saved_y)
     saved_dy = np.array(quadcon.saved_dy)
     saved_phi = np.array(quadcon.saved_phi)
     savedj1 = np.array(quadcon.saved_j1)
-    
-    
     
     # Generate the count (time) vector
     time_vector = np.arange(len(savedz)) * quadcon.dt /100 # Assuming dt is the time step
@@ -1312,7 +752,8 @@ def signal_handler(sig, frame):
         # plot_tau_data(QUADcon.saved_tau)
         plot_sc_tau_data(QUADcon.saved_sc_Tau)
         plot_xyz_data(QUADcon.saved_xyz, QUADcon.saved_refs)
-        plot_xyz_velocities(QUADcon.saved_xyz)
+        plot_xyz_velocities(QUADcon.saved_xyz, QUADcon.saved_refs)
+        plot_dy_velocity(QUADcon.saved_xyz, QUADcon.saved_refs)
         plot_xyz_errors(QUADcon.posErrors)
         # plot_thrust_data(QUADcon.saved_Thrust)
         plot_sc_thrust_data(QUADcon.saved_sc_Thrust)
@@ -1325,7 +766,8 @@ def signal_handler(sig, frame):
         plot_motor_data(QUADcon.saved_Throttles)
 
         #plot_angles(QUADcon.saved_angles, QUADcon.saved_desired_angles)        #Rdes
-        plot_angles(QUADcon.saved_angles, QUADcon.saved_desired_angles2)       #Rot   Im not sure about the angles
+        plot_angles(QUADcon.saved_angles, QUADcon.saved_desired_angles2)
+        plot_phi(QUADcon.saved_angles, QUADcon.saved_desired_angles2)       #Rot   Im not sure about the angles
         plot_angleszoom(QUADcon.saved_angles, QUADcon.saved_desired_angles2) 
         plot_allrots_data(QUADcon.saved_quat, QUADcon.saved_Desired_Rd)
         plot_allrots_dataZOOM(QUADcon.saved_quat, QUADcon.saved_Desired_Rd)
@@ -1799,10 +1241,11 @@ def plot_xyz_data(xyz_data, refs, zoom_x=None, zoom_y=None):
     plt.savefig('XPlane_xyz_plot.png')
     plt.close()
 
-def plot_xyz_velocities(xyz_data, zoom_x=None, zoom_y=None):
+def plot_xyz_velocities(xyz_data, refs, zoom_x=None, zoom_y=None):
     """ Plot xyz data with optional zooming """
     # Convert to numpy arrays
     xyz_data = np.array(xyz_data)
+    refs = np.array(refs)
     
     time_steps = np.arange(len(xyz_data))
     time_steps = time_steps/100
@@ -1822,6 +1265,7 @@ def plot_xyz_velocities(xyz_data, zoom_x=None, zoom_y=None):
     # Subplot for y data
     plt.subplot(3, 1, 2)
     plt.plot(time_steps, xyz_data[:, 4], label='dy')
+    plt.plot(time_steps, refs[:, 4], label='dy_d')
     plt.ylabel('dy')
     plt.legend()
     if zoom_x:
@@ -1846,6 +1290,49 @@ def plot_xyz_velocities(xyz_data, zoom_x=None, zoom_y=None):
     plt.savefig('XPlane_xyz_velocities.png')
     plt.close()
 
+def plot_dy_velocity(xyz_data, refs=None, zoom_x=None, zoom_y=None):
+    """ Plot only the dy component (and optional dy reference). """
+    xyz_data = np.array(xyz_data)
+    time_steps = np.arange(len(xyz_data)) / 100.0  # convert to seconds
+
+    plt.figure()
+    plt.plot(time_steps, xyz_data[:, 4], label='dy')         # actual y-vel
+    if refs is not None:
+        refs = np.array(refs)
+        plt.plot(time_steps, refs[:, 4], '--', label='dy_d')  # desired y-vel
+
+    plt.xlabel('Time (s)')
+    plt.ylabel('dy (m/s)')
+    plt.legend()
+    if zoom_x:
+        plt.xlim(zoom_x)
+    if zoom_y:
+        plt.ylim(zoom_y)
+    plt.tight_layout()
+    plt.savefig('dy_velocity.png')
+    plt.close()
+
+def plot_phi(w_data, des_data=None, zoom_x=None, zoom_y=None):
+    """ Plot only the phi component and its reference. """
+    w_data = np.array(w_data)
+    time_steps = np.arange(len(w_data))/100  # or divide by your sample rate if desired
+
+    plt.figure()
+    plt.plot(time_steps, w_data[:, 0], label='phi')
+    if des_data is not None:
+        des_data = np.array(des_data)
+        plt.plot(time_steps, des_data[:, 0], '--', label='phi_d')
+
+    plt.xlabel('Time (s)')
+    plt.ylabel('phi (rad)')
+    plt.legend()
+    if zoom_x:
+        plt.xlim(zoom_x)
+    if zoom_y:
+        plt.ylim(zoom_y)
+    plt.tight_layout()
+    plt.savefig('phi_plot.png')
+    plt.close()
 
 def plot_xyz_data_3d(xyz_data, refs, xlim=None, ylim=None, zlim=None):
     """ Plot xyz data in 3D with optional axis limits """
@@ -1896,9 +1383,9 @@ def plot_xyz_errors(xyz_data, zoom_x=None, zoom_y=None):
 
     # Subplot for x data
     plt.subplot(2, 1, 1)
-    plt.plot(time_steps, xyz_data[:, 2], label='Error _z')
+    plt.plot(time_steps, xyz_data[:, 1], label='Error _y')
     
-    plt.ylabel('Error z')
+    plt.ylabel('Error y')
     plt.legend()
     if zoom_x:
         plt.xlim(zoom_x)  # Zoom into x-axis range if specified
@@ -1907,9 +1394,9 @@ def plot_xyz_errors(xyz_data, zoom_x=None, zoom_y=None):
 
     # Subplot for y data
     plt.subplot(2, 1, 2)
-    plt.plot(time_steps, xyz_data[:, 5], label='Error dz')
+    plt.plot(time_steps, xyz_data[:, 4], label='Error dy')
   
-    plt.ylabel('Error dz')
+    plt.ylabel('Error dy')
     plt.legend()
     if zoom_x:
         plt.xlim(zoom_x)
